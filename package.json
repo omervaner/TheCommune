@@ -1,0 +1,21 @@
+{
+  "name": "the-commune",
+  "version": "0.1.0",
+  "description": "Turn-based tactical social combat game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "pixi.js": "^8.6.6",
+    "gsap": "^3.12.7",
+    "howler": "^2.2.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "@types/howler": "^2.2.12"
+  }
+}
