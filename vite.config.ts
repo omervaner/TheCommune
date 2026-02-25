@@ -12,6 +12,7 @@ export default defineConfig({
       '@utils': resolve(__dirname, 'src/utils'),
       '@input': resolve(__dirname, 'src/input'),
       '@audio': resolve(__dirname, 'src/audio'),
+      '@dialogue': resolve(__dirname, 'src/dialogue'),
     },
   },
   server: {

@@ -2,108 +2,114 @@
 
 ## What This Is
 
-A turn-based tactical social combat game. Think Into the Breach meets Monkey Island insult sword fighting. Modern-day caricatures (Karen, Conspiracy Theorist, Therapist, etc.) fight on a 10x10 isometric grid using arguments, guilt trips, and social manipulation instead of weapons. Characters have Resolve bars instead of HP — break someone's resolve and they're out (convinced, intimidated, fled, or embarrassed).
+A turn-based tactical social combat game with a character-driven management layer. Think Into the Breach combat meets Darkest Dungeon roster management, wrapped in modern-day satire. Caricatures (Karen, Conspiracy Theorist, Therapist, etc.) live in a commune, clash over personality differences, and fight external threats using arguments, guilt trips, and social manipulation on an isometric grid.
+
+The game has two layers:
+1. **Combat** — Isometric grid tactics. Resolve bars instead of HP. COMPLETE (M0–M8).
+2. **Commune Management** — Character-driven management between battles. Roster, events, recruitment, missions, upgrades. IN PROGRESS (C0–C8).
 
 ## Stack
 
-- **TypeScript** — strict mode, all types in `src/game/types.ts`
-- **PixiJS 8** — 2D rendering (sprites, grid, UI). Import from `pixi.js`
-- **GSAP 3** — all animation (tweens, screen shake, card flips). Import from `gsap`
-- **Howler.js** — audio (not needed yet for v0.1)
+- **TypeScript** — strict mode
+- **PixiJS 8** — 2D rendering. Import from `pixi.js`
+- **GSAP 3** — all animation. Import from `gsap`
+- **Howler.js** — audio. Import from `howler`
 - **Vite** — dev server and bundler
 
 ## Project Structure
 
 ```
 src/
-  main.ts              — App bootstrap (~5 lines, creates Game + CombatScene)
-  Game.ts              — Owns PixiJS Application, SceneManager, ticker
-  EventBus.ts          — Generic typed event emitter (on/emit/clear)
-  game/
-    types.ts           — All TypeScript interfaces/types + CombatEvents map
-    CombatEngine.ts    — Combat state machine, turn management, defeat (uses EventBus)
-    Grid.ts            — Grid data operations (pathfinding, range calc, tile queries)
-    AbilityResolver.ts — Preview + execute abilities, damage calc, status effects
-    AI.ts              — Enemy turn decision-making (move toward nearest, attack if in range)
+  main.ts                      — App bootstrap (~5 lines)
+  Game.ts                      — Owns PixiJS Application, SceneManager, ticker
+  EventBus.ts                  — Generic typed event emitter (on/emit/clear)
+
   scenes/
-    SceneManager.ts    — Scene interface + SceneManager (start/update/getActive)
-    CombatScene.ts     — Combat orchestrator: wires engine + renderers + input + animations
+    SceneManager.ts            — Scene interface + lifecycle (start/update/getActive)
+    CombatScene.ts             — Combat orchestrator ✅ COMPLETE
+    CommuneScene.ts            — Management hub (roster, buttons, navigation)
+
+  game/
+    types.ts                   — Combat interfaces + CombatEvents
+    types_commune.ts           — Commune interfaces + CommuneEvents
+    CombatEngine.ts            — Combat state machine, turns, defeat ✅ COMPLETE
+    CommuneState.ts            — Between-combat state (roster, money, morale, events)
+    Grid.ts                    — Grid queries, pathfinding ✅ COMPLETE
+    AbilityResolver.ts         — Damage calc, status effects ✅ COMPLETE
+    AI.ts                      — Enemy combat AI ✅ COMPLETE
+    RelationshipManager.ts     — Trait-based bonds/clashes between characters
+    EventManager.ts            — Commune event triggers, evaluation, outcome processing
+    RecruitmentManager.ts      — Generate and manage recruit offers
+
+  dialogue/
+    types.ts                   — DialogueScript, DialogueStep, Choice, Outcome
+    DialogueEngine.ts          — Pure data: processes dialogue scripts step by step
+
   input/
-    InputHandler.ts    — Click/hover → grid-space events (offset-corrected for grid container)
-    TileSelector.ts    — Highlight logic for move/attack/AoE ranges
+    InputHandler.ts            — Click/hover → grid events ✅ COMPLETE
+    TileSelector.ts            — Move/attack range highlights ✅ COMPLETE
+
   rendering/
-    GridRenderer.ts    — Draws the isometric 10x10 grid
-    CharacterRenderer.ts — Character visuals (sprite textures or circle fallback), resolve bars, idle bob, damage previews
-    InitiativeBar.ts   — Top-of-screen turn order display
-    ResolveBar.ts      — Resolve bar drawing utility with ghost segment for previews
-    HUD.ts             — Ability buttons with cooldown display
-    CharacterCard.ts   — Hover/select character info cards with flip animation
+    GridRenderer.ts            — Isometric grid ✅ COMPLETE
+    CharacterRenderer.ts       — Character sprites, resolve bars, idle bob ✅ COMPLETE
+    InitiativeBar.ts           — Turn order display ✅ COMPLETE
+    ResolveBar.ts              — Resolve bar utility ✅ COMPLETE
+    HUD.ts                     — Ability buttons ✅ COMPLETE
+    CharacterCard.ts           — Hover/select stat cards ✅ COMPLETE
+    DialogueRenderer.ts        — Dim-and-spotlight, speech bubbles, choice panel
+    PortraitCard.ts            — Dual-mode card (stats mode ↔ dialogue mode)
+    MissionSelect.ts           — Mission picker with squad chemistry preview
+    UpgradeMenu.ts             — Building upgrade list
+
   animation/
-    AnimationManager.ts — Counter-based animation tracker, blocks input while playing
-    Tweens.ts          — GSAP animations (move, attack, hit, shake, defeat, idle, damage numbers, turn banner, camera focus)
+    AnimationManager.ts        — Animation tracker ✅ COMPLETE
+    Tweens.ts                  — GSAP animation library ✅ COMPLETE
+
   audio/
-    SoundManager.ts    — Howler.js wrapper, subscribes to EventBus events, maps to sound files
+    SoundManager.ts            — Howler.js wrapper ✅ COMPLETE
+
   data/
-    characters.ts      — Character factory functions (Karen, Therapist, Dave, Goon)
+    characters.ts              — Player character factories ✅ COMPLETE
+    traits.ts                  — Personality trait definitions
+    events.ts                  — Commune event scripts with dialogue
+    missions.ts                — Mission templates (threat, enemies, rewards)
+    enemies.ts                 — Enemy templates by faction
+    upgrades.ts                — Building upgrade definitions
+    recruit_pool.ts            — Recruitable character templates
+
   utils/
-    constants.ts       — Shared constants (grid, tile, character sizes, colors)
-    iso.ts             — Isometric math conversions (gridToScreen, screenToGrid, etc.)
+    constants.ts               — Shared constants ✅ COMPLETE
+    iso.ts                     — Isometric math ✅ COMPLETE
 ```
 
 ## Architecture Rules
 
-1. **Separation of data and rendering.** Game logic in `game/` never imports PixiJS. Rendering in `ui/` reads game state but never mutates it. Animation in `animation/` only receives PixiJS display objects to animate.
+1. **Separation of data and rendering.** `game/` and `dialogue/` never import PixiJS. `rendering/` reads state but never mutates it.
 
-2. **CombatState is the single source of truth.** The combat state machine drives everything. UI reads from it. Actions modify it. Never store game state in renderers.
+2. **Two sources of truth.** CombatEngine owns combat state. CommuneState owns between-combat state. They never cross-reference directly — CombatScene reads from CommuneState at setup (squad, trait buffs), and writes results back after combat ends.
 
-3. **Event-driven updates.** When combat state changes, emit events. Renderers listen and update visuals. Use a simple EventEmitter pattern (not PixiJS events).
+3. **Event-driven updates.** EventBus connects everything. Renderers subscribe to events. State changes emit events. No direct coupling.
 
-4. **Types are already defined.** Check `src/game/types.ts` before creating any new interfaces. Character, Ability, Tile, Grid, CombatState, TurnPhase — they're all there.
+4. **The dim-and-spotlight pattern.** All commune interactions (events, recruitment, mission select, upgrades) use one visual system: dim the background, spotlight character cards, show dialogue/choices, dismiss. DialogueRenderer handles this universally.
 
-5. **Isometric math is already done.** Check `src/utils/iso.ts` for gridToScreen, screenToGrid, gridDistance, isValidTile. Don't rewrite these.
+5. **One card, two modes.** PortraitCard shows stats mode (roster, combat) or dialogue mode (events, recruitment). Same art asset, different presentation. GSAP tweens the transition.
 
-6. **Characters are already defined.** Check `src/data/characters.ts` for Karen, Therapist, Conspiracy Theorist, and Corporate Goon factories.
+6. **Traits drive everything in the commune.** Personality traits cause clashes, form bonds, trigger events, modify combat stats, and create comedy. They're the mechanical spine of the management layer.
 
-## Combat Flow (What To Build)
+## Design Documents
 
-The core turn loop:
+- **`GAME_DESIGN.md`** — Original game concept, tone, classes, combat design
+- **`COMMUNE_LAYER_DESIGN.md`** — Full management layer design: cards, dim-and-spotlight, traits, events, roster, recruitment, missions, upgrades, progression loop
+- **`COMMUNE_ROADMAP.md`** — Implementation milestones C0–C8 with task lists
+- **`DEVELOPMENT_PLAN.md`** — Combat milestones M0–M8 (ALL COMPLETE)
 
-1. Sort characters by initiative → build turn order
-2. Current character's turn starts → highlight their tile, show in initiative bar
-3. Player picks: MOVE or ACT (can do both, in either order, once each per turn)
-4. MOVE: show reachable tiles (BFS within movement range), click to move, animate walk
-5. ACT: show ability buttons, pick one, show valid targets highlighted, click target, animate attack, resolve damage
-6. After move+act (or player ends turn), advance to next character
-7. Enemy turns: simple AI — move toward nearest player, use ability if in range
-8. Win: all enemies defeated. Lose: all players defeated.
-
-## Visual Design
-
-- **Isometric 2D grid**, 10x10, diamond layout
-- **Static sprites** — no frame-by-frame animation. All motion via GSAP tweens
-- **Attack animation**: sprite slides toward target, flash on impact, slide back
-- **Hit animation**: target flashes red, screen shakes slightly, damage number floats up
-- **Defeat animation**: sprite fades out and collapses
-- **Idle**: gentle sine-wave hover (subtle vertical bob)
-- **Initiative bar**: top of screen, horizontal row of character portraits, current turn highlighted
-- **Character card**: floating panel with stats, appears on hover/select with a flip animation
-- **Everything casts drop shadows** — use PixiJS DropShadowFilter
-- **Color palette**: muted/desaturated with bright accents for highlights and abilities
-
-## Character Art
-
-- Sprite textures go in `public/sprites/<name>/rotations/` with 8 directions (south, south-east, east, etc.)
-- CharacterRenderer maps `CharacterClass` to a sprite path via `SPRITE_PATHS`. Default facing is south-east (isometric camera angle).
-- Characters without a sprite entry fall back to colored circles with a letter label.
-- Currently Karen has a 48px sprite; all others use circle fallback.
-- Tiles: diamond shapes, light gray for walkable, dark for blocked
-- Highlight colors: blue for move range, red for attack range, yellow for selected
+**READ the active roadmap before doing any work.** Check which milestone is active. Only work on that milestone.
 
 ## Running The Project
 
 ```bash
 npm install    # first time only
-npm run dev    # starts Vite dev server on localhost:3000, auto-opens browser
+npm run dev    # starts Vite dev server on localhost:3000
 ```
 
 ## Key Conventions
@@ -111,29 +117,31 @@ npm run dev    # starts Vite dev server on localhost:3000, auto-opens browser
 - All files use named exports, no default exports
 - One class/module per file
 - Comments explain WHY, not WHAT
-- Ability names should be funny and in-character (they're arguments, not spells)
-- When in doubt, keep it simple — this is v0.1, not the final game
-
-## Development Plan
-
-READ `DEVELOPMENT_PLAN.md` before doing any work. It contains:
-- The full architecture diagram
-- Milestones in order (M0 through M8)
-- What to build for each milestone
-- The current active milestone
-
-Never skip milestones. Never build features from a later milestone.
-Always check which milestone is active and only work on that.
+- Game logic (`game/`, `dialogue/`) never imports from `pixi.js`
+- Rendering never mutates game state
+- All communication between systems goes through EventBus
+- Ability names and event dialogue should be funny and in-character
+- **Nothing is hardcoded.** Every system is data-driven and parameterized from birth. Test with minimal data, not hardcoded values.
+- **Build it where it lives.** Don't build in a temporary location and move later.
+- **Don't define types until they're used.** Interfaces are created in the milestone that first needs them.
+- Don't skip milestones. Don't build features from a later milestone.
+- Don't rewrite files from completed milestones unless the current milestone explicitly requires it.
 
 ## What NOT To Do
 
 - Don't add a physics engine
 - Don't add pathfinding libraries — BFS on a 10x10 grid is trivial
-- Don't create animation sprite sheets
+- Don't create animation sprite sheets — all motion is GSAP tweens
 - Don't add networking/multiplayer
 - Don't add a save system yet
-- Don't over-engineer the management layer — v0.1 is combat only
+- Don't build the commune as a spatial/tile-based base builder — it's a roster board with menus
+- Don't create background art for dialogue scenes — the dim-and-spotlight pattern means the current screen IS the background
 - Don't use default exports
 - Don't put game logic in renderers
 - Don't skip ahead in the milestone plan
-- Don't rewrite files from completed milestones unless the current milestone explicitly requires it
+
+## Current Status
+
+**Combat:** COMPLETE (M0–M8). Fully playable tactical combat with turns, abilities, AI, animations, sound.
+**Commune:** IN PROGRESS. Active milestone: C0 — Dialogue Engine.
+**Art:** Karen has a 48px sprite. Others use colored circle fallback. Portrait art pending (weekend LoRA work).

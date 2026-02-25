@@ -23,7 +23,8 @@
       "@data/*": ["src/data/*"],
       "@utils/*": ["src/utils/*"],
       "@input/*": ["src/input/*"],
-      "@audio/*": ["src/audio/*"]
+      "@audio/*": ["src/audio/*"],
+      "@dialogue/*": ["src/dialogue/*"]
     }
   },
   "include": ["src/**/*.ts"],

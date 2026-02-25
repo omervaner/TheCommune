@@ -17,6 +17,11 @@ export class Game {
     this.scenes = new SceneManager();
   }
 
+  /** Switch to a different scene (exit current, enter new). */
+  switchScene(scene: Scene): void {
+    this.scenes.start(scene);
+  }
+
   /** Initialize PixiJS, attach the ticker, and start the given scene. */
   async start(scene: Scene): Promise<void> {
     await this.app.init({

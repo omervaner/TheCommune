@@ -2,6 +2,8 @@
  * CombatScene — owns the EventBus, CombatEngine, and all renderers.
  * Enforces turn order and manages the full move/act interaction flow
  * including ability targeting with damage previews and GSAP animations.
+ *
+ * Accepts squad + enemies as constructor params — no hardcoded characters.
  */
 
 import { Container, Graphics, Text } from 'pixi.js';
@@ -24,11 +26,19 @@ import { tweenMove, tweenAttack, tweenHit, tweenShake, tweenDefeat, tweenDamageN
 import { SoundManager } from '@audio/SoundManager';
 import { clearHighlights, getTile } from '@game/Grid';
 import { gridToScreen, isValidTile } from '@utils/iso';
-import { createKaren, createTherapist, createConspiracyTheorist, createCorpGoon } from '@data/characters';
 import type { Character, Ability, CombatEvents } from '@game/types';
 import type { AbilityPreviewEntry } from '@game/AbilityResolver';
 
+export type CombatResult = 'player_wins' | 'player_loses';
+
+export interface CombatSceneConfig {
+  squad: Character[];
+  enemies: Character[];
+  onComplete?: (result: CombatResult) => void;
+}
+
 export class CombatScene implements Scene {
+  private config: CombatSceneConfig;
   private app: Application | null = null;
   private bus = new EventBus<CombatEvents>();
   private engine: CombatEngine | null = null;
@@ -45,29 +55,17 @@ export class CombatScene implements Scene {
   private selectedCharacter: Character | null = null;
   private processingEnemyTurns = false;
   private combatOver = false;
+  private combatResult: CombatResult | null = null;
+
+  constructor(config: CombatSceneConfig) {
+    this.config = config;
+  }
 
   enter(app: Application): void {
     this.app = app;
 
-    const karen = createKaren();
-    karen.position = { col: 1, row: 3 };
-
-    const therapist = createTherapist();
-    therapist.position = { col: 0, row: 5 };
-
-    const dave = createConspiracyTheorist();
-    dave.position = { col: 2, row: 6 };
-
-    const goon1 = createCorpGoon();
-    goon1.id = 'goon_1';
-    goon1.position = { col: 8, row: 3 };
-
-    const goon2 = createCorpGoon();
-    goon2.id = 'goon_2';
-    goon2.name = 'Corporate Goon #2';
-    goon2.position = { col: 7, row: 5 };
-
-    this.engine = new CombatEngine([karen, therapist, dave, goon1, goon2], this.bus);
+    const allChars = [...this.config.squad, ...this.config.enemies];
+    this.engine = new CombatEngine(allChars, this.bus);
 
     this.gridRenderer = new GridRenderer();
     this.gridRenderer.centerOn(app.screen.width, app.screen.height);
@@ -105,7 +103,6 @@ export class CombatScene implements Scene {
       this.charRenderer!.update(this.engine.getState().characters);
       this.refreshVisuals();
       await this.showTurnBanner();
-      console.log('The Commune v0.1 — ready');
     });
   }
 
@@ -534,6 +531,7 @@ export class CombatScene implements Scene {
     if (!result) return false;
 
     this.combatOver = true;
+    this.combatResult = result === 'player_wins' ? 'player_wins' : 'player_loses';
     if (result === 'player_wins') this.soundManager?.play('victory');
     this.showGameOverOverlay(result === 'player_wins' ? 'VICTORY' : 'DEFEAT',
       result === 'player_wins' ? 0x44dd44 : 0xff4444);
@@ -601,33 +599,32 @@ export class CombatScene implements Scene {
       sy += 24;
     }
 
-    // Play Again button
-    const btnW = 140;
+    // Buttons
+    const btnW = 130;
     const btnH = 34;
-    const btn = new Container();
-    btn.x = Math.round(sw / 2);
-    btn.y = py + panelH - 36;
+    const btnY = py + panelH - 36;
 
-    const btnBg = new Graphics();
-    btnBg.roundRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-    btnBg.fill({ color: 0x4a6a4a, alpha: 0.9 });
-    btnBg.stroke({ color: 0x88aa88, width: 1.5 });
+    // Play Again
+    const playAgainBtn = this.makeOverlayButton('Play Again', btnW, btnH, 0x4a6a4a, 0x88aa88);
+    playAgainBtn.x = Math.round(sw / 2) - (this.config.onComplete ? 72 : 0);
+    playAgainBtn.y = btnY;
+    playAgainBtn.on('pointerdown', () => this.restartCombat());
+    playAgainBtn.alpha = 0;
+    gsap.to(playAgainBtn, { alpha: 1, duration: 0.3, delay: 0.8 });
+    overlay.addChild(playAgainBtn);
 
-    const btnLabel = new Text({
-      text: 'Play Again',
-      style: { fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', fill: 0xddffdd },
-    });
-    btnLabel.anchor.set(0.5, 0.5);
-
-    btn.addChild(btnBg, btnLabel);
-    btn.eventMode = 'static';
-    btn.cursor = 'pointer';
-    btn.on('pointerdown', () => {
-      this.restartCombat();
-    });
-    btn.alpha = 0;
-    gsap.to(btn, { alpha: 1, duration: 0.3, delay: 0.8 });
-    overlay.addChild(btn);
+    // Return to Commune (only if onComplete callback exists)
+    if (this.config.onComplete) {
+      const returnBtn = this.makeOverlayButton('Return', btnW, btnH, 0x4a4a6a, 0x8a8aaa);
+      returnBtn.x = Math.round(sw / 2) + 72;
+      returnBtn.y = btnY;
+      returnBtn.on('pointerdown', () => {
+        this.config.onComplete!(this.combatResult!);
+      });
+      returnBtn.alpha = 0;
+      gsap.to(returnBtn, { alpha: 1, duration: 0.3, delay: 0.9 });
+      overlay.addChild(returnBtn);
+    }
 
     this.gameOverOverlay = overlay;
     this.app.stage.addChild(overlay);
@@ -642,12 +639,35 @@ export class CombatScene implements Scene {
     this.setEndTurnBtnVisible(false);
   }
 
-  /** Tear down and restart the combat scene */
+  /** Tear down and restart the combat scene with same config */
   private restartCombat(): void {
     if (!this.app) return;
     const app = this.app;
     this.exit();
+    // Re-create fresh characters from the same config pattern
+    this.config = {
+      ...this.config,
+      squad: this.config.squad.map((c) => ({ ...c, currentResolve: c.maxResolve, isDefeated: false, statusEffects: [], defeatType: undefined })),
+      enemies: this.config.enemies.map((c) => ({ ...c, currentResolve: c.maxResolve, isDefeated: false, statusEffects: [], defeatType: undefined })),
+    };
     this.enter(app);
+  }
+
+  private makeOverlayButton(label: string, w: number, h: number, fillColor: number, strokeColor: number): Container {
+    const btn = new Container();
+    const bg = new Graphics();
+    bg.roundRect(-w / 2, -h / 2, w, h, 6);
+    bg.fill({ color: fillColor, alpha: 0.9 });
+    bg.stroke({ color: strokeColor, width: 1.5 });
+    const txt = new Text({
+      text: label,
+      style: { fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', fill: 0xdddddd },
+    });
+    txt.anchor.set(0.5, 0.5);
+    btn.addChild(bg, txt);
+    btn.eventMode = 'static';
+    btn.cursor = 'pointer';
+    return btn;
   }
 
   private delay(ms: number): Promise<void> {
